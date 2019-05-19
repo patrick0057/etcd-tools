@@ -156,7 +156,7 @@ fi
 
 echo ${red}Connecting to remote etcd and issuing add member command${reset}
 export $(sshcmd "docker exec etcd ${ETCD_ADD_MEMBER_CMD} | grep ETCD_INITIAL_CLUSTER")
-echo "${red}ETCD_INITIAL_CLUSTER has been set to ${ETCD_INITIAL_CLUSTER} <-If this is blank etcd-join will fail${reset}"
+echo "${red}ETCD_INITIAL_CLUSTER has been set to ${ETCD_INITIAL_CLUSTER} ${green}<-If this is blank etcd-join will fail${reset}"
 
 
 RESTORE_RUNLIKE='docker run
