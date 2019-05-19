@@ -11,6 +11,14 @@ rootcmd () {
      $1
 fi
 }
+sshcmd () {
+if [[ ${#REMOTE_SSH_KEY} == 0 ]]
+then
+    ssh -o StrictHostKeyChecking=no -l ${REMOTE_SSH_USER} $REMOTE_SSH_IP $1
+    else
+    ssh -o StrictHostKeyChecking=no -i ${REMOTE_SSH_KEY} -l ${REMOTE_SSH_USER} $REMOTE_SSH_IP $1
+fi
+}
 #Help menu
 if [[ $1 == '' ]] || [[ $2 == '' ]] || [[ $@ =~ " -h" ]] || [[ $1 = "-h" ]] || [[ $@ =~ " --help" ]] || [[ $1 =~ "--help" ]]
  then
@@ -29,6 +37,7 @@ then
  echo ${green}runlike container failed to run, aborting script!${reset}
  exit 1
 fi
+
 REMOTE_SSH_USER=$1
 REMOTE_SSH_IP=$2
 REMOTE_SSH_KEY=$3
@@ -60,14 +69,18 @@ then
 fi
 echo ${green}SSH test succesful.${reset}
 echo
-sshcmd () {
-if [[ ${#REMOTE_SSH_KEY} == 0 ]]
+
+#Check if etcd is actually running on the remote server
+echo ${green}Checking to see if etcd is actually running on the remote host ${reset}
+REMOTE_ETCD_RUNNING=$(sshcmd "docker ps --filter 'name=^/etcd$' --format '{{.Names}}'")
+if [[ ! ${REMOTE_ETCD_RUNNING} == 'etcd' ]]
 then
-    ssh -o StrictHostKeyChecking=no -l ${REMOTE_SSH_USER} $REMOTE_SSH_IP $1
-    else
-    ssh -o StrictHostKeyChecking=no -i ${REMOTE_SSH_KEY} -l ${REMOTE_SSH_USER} $REMOTE_SSH_IP $1
+ echo ${green}etcd is not running on the remote host!  Check that you have the correct host then try again.${reset}
+ exit 1
 fi
-}
+echo ${green}etcd is running on the remote host, excellent!
+echo
+
 export $(docker inspect etcd -f '{{.Config.Env}}'| sed 's/[][]//g')
 docker inspect etcd &> /dev/null
 if [[ $? -ne 0 ]]
