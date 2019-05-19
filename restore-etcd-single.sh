@@ -56,7 +56,7 @@ ETCDCTL_KEY=$(sed  's,^.*ETCDCTL_KEY=\([^"]*\).*,\1,g' <<< $RUNLIKE)
 ETCD_VERSION=$(sed  's,^.*rancher/coreos-etcd:\([^ ]*\).*,\1,g' <<< $RUNLIKE)
 INITIAL_ADVERTISE_PEER_URL=$(sed  's,^.*initial-advertise-peer-urls=\([^ ]*\).*,\1,g' <<< $RUNLIKE)
 ETCD_NAME=$(sed  's,^.*name=\([^ ]*\).*,\1,g' <<< $RUNLIKE)
-INITIAL_CLUSTER=$(sed  's,^.*--initial-cluster=\('"$ETCD_NAME"'\)=\([^,]*\).*,\1=\2,g' <<< $RUNLIKE)
+INITIAL_CLUSTER=$(sed  's,^.*--initial-cluster=.*\('"$ETCD_NAME"'\)=\([^,^ ]*\).*,\1=\2,g' <<< $RUNLIKE)
 ETCD_SNAPSHOT_LOCATION='/etc/kubernetes/snapshot.db'
 
 RESTORE_RUNLIKE='docker run
