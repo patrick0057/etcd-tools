@@ -27,17 +27,17 @@ then
 fi
 if [ ! "$(docker ps -a --filter "name=^/etcd$" --format '{{.Names}}')" == "etcd" ]
 then
-        echo "${green} etcd container does not exist, script cannot proceed${reset}"
+        echo "${green}etcd container does not exist, script cannot proceed${reset}"
         exit 1
 fi
 if [ "$(docker ps -a --filter "name=^/etcd-restore$" --format '{{.Names}}')" == "etcd-restore" ]
 then
-        echo "${green} etcd-restore container exists, please remove this container before running the script${reset}"
+        echo "${green}etcd-restore container exists, please remove this container before running the script${reset}"
         exit 1
 fi
 if [ "$(docker ps -a --filter "name=^/etcd-reinit$" --format '{{.Names}}')" == "etcd-reinit" ]
 then
-        echo "${green} etcd-reinit container exists, please remove this container before running the script${reset}"
+        echo "${green}etcd-reinit container exists, please remove this container before running the script${reset}"
         exit 1
 fi
 #Help menu
