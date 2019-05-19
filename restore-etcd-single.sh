@@ -188,5 +188,18 @@ rootcmd "rm -f /etc/kubernetes/snapshot.db"
 echo ${red}Setting etcd restart policy to always restart${reset}
 docker update --restart=always etcd
 
+#PRINT OUT MEMBER LIST
+#CHECK IF WE NEED TO ADD --endpoints TO THE COMMAND
+REQUIRE_ENDPOINT=$(docker exec etcd netstat -lpna | grep \:2379 | grep tcp | grep LISTEN | tr -s ' ' | cut -d' ' -f4)
+if [[ $REQUIRE_ENDPOINT =~ ":::" ]]
+then
+    echo "${green} etcd is listening on ${REQUIRE_ENDPOINT}, no need to pass --endpoints${reset}"
+    docker exec etcd etcdctl member list
+    else
+        echo "${green} etcd is only listening on ${REQUIRE_ENDPOINT}, we need to pass --endpoints${reset}"
+        docker exec etcd etcdctl --endpoints ${REQUIRE_ENDPOINT} member list
+fi
+
+
 echo ${green}Single restore has completed, please be sure to restart kubelet and kube-apiserver on other nodes.${reset}
 echo ${green}If you are planning to rejoin another node to this etcd cluster you\'ll want to use etcd-join.sh on that node${reset}
