@@ -223,3 +223,6 @@ then
 fi
 
 #curl -k --cacert $ETCDCTL_CACERT --cert $ETCDCTL_CERT --key ${ETCDCTL_KEY} https://18.191.139.66:2379/v3beta/cluster/member/add -XPOST -H "Content-Type: application/json" -d '{"peerURLs":["${INITIAL_ADVERTISE_PEER_URL}"]}'
+
+echo ${red}Setting etcd restart policy to always restart${reset}
+docker update --restart=always etcd
