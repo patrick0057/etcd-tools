@@ -123,13 +123,13 @@ ETCD_BACKUP_TIME=$(date +%Y-%m-%d--%H%M%S)
 
 echo ${red}Stopping etcd container${reset}
 docker stop etcd
-echo ${green}Waiting 11 seconds for etcd to stop${reset}
-sleep 11
+#echo ${green}Waiting 11 seconds for etcd to stop${reset}
+#sleep 11
 echo ${red}Moving old etcd data directory /var/lib/etcd to /var/lib/etcd-old--${ETCD_BACKUP_TIME}${reset}
 rootcmd "mv /var/lib/etcd /var/lib/etcd-old--${ETCD_BACKUP_TIME}"
 
 #ls -lash /var/lib/etcd
-sleep 2
+
 ETCD_NAME=$(sed  's,^.*name=\([^ ]*\).*,\1,g' <<< $RUNLIKE)
 ETCD_HOSTNAME=$(sed  's,^.*--hostname=\([^ ]*\).*,\1,g' <<< $RUNLIKE)
 ETCDCTL_ENDPOINT="https://0.0.0.0:2379"
@@ -156,7 +156,7 @@ fi
 
 echo ${red}Connecting to remote etcd and issuing add member command${reset}
 export $(sshcmd "docker exec etcd ${ETCD_ADD_MEMBER_CMD} | grep ETCD_INITIAL_CLUSTER")
-echo "${red}ETCD_ADD_MEMBER_CMD has been set to ${ETCD_ADD_MEMBER_CMD} <-If this is blank etcd-join will fail${reset}"
+echo "${red}ETCD_INITIAL_CLUSTER has been set to ${ETCD_INITIAL_CLUSTER} <-If this is blank etcd-join will fail${reset}"
 
 
 RESTORE_RUNLIKE='docker run
