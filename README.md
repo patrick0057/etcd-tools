@@ -19,8 +19,9 @@ docker update --restart=no etcd && docker stop etcd
 ./restore-etcd-single.sh </path/to/snapshot>
 ```
 
-4. Rejoin etcd nodes by running the following command.  SSH key is option if you have a default one already set on your ssh account.
+4. Rejoin etcd nodes by running the following commands.  SSH key is option if you have a default one already set on your ssh account.
 ```bash
+curl -LO https://github.com/patrick0057/etcd-tools/raw/master/etcd-join.sh
 ./etcd-join.sh <ssh user> <remote etcd IP> [path to ssh key for remote box]
 ```
 5. Restart kubelet and kube-apiserver on all servers where it has not been restarted for you by the script already.
