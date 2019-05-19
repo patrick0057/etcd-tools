@@ -22,8 +22,8 @@ then
     docker rm -f etcd-join
 fi
 #check for runlike container
-echo ${green}Checking if runlike container works before we get too far into the script.${reset}
-docker run --rm -v /var/run/docker.sock:/var/run/docker.sock patrick0057/runlike etcd
+echo ${green}Gathering information about your etcd container with runlike${reset}
+RUNLIKE=$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock patrick0057/runlike etcd)
 if [[ $? -ne 0 ]]
 then
  echo ${green}runlike container failed to run, aborting script!${reset}
@@ -81,8 +81,7 @@ echo ${green}I was able to inspect the etcd container!  Script will proceed...${
 echo
 
 
-echo ${green}Gathering information about your etcd container with runlike${reset}
-RUNLIKE=$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock patrick0057/runlike etcd)
+
 
 #GET ALL ENVIRONMENT VARIABLES ON HOST
 
@@ -121,9 +120,9 @@ sleep 2
 ETCD_NAME=$(sed  's,^.*name=\([^ ]*\).*,\1,g' <<< $RUNLIKE)
 ETCD_HOSTNAME=$(sed  's,^.*--hostname=\([^ ]*\).*,\1,g' <<< $RUNLIKE)
 ETCDCTL_ENDPOINT="https://0.0.0.0:2379"
-ETCDCTL_CACERT=$(sed  's,^.*ETCDCTL_CACERT=\([^"]*\).*,\1,g' <<< $RUNLIKE)
-ETCDCTL_CERT=$(sed  's,^.*ETCDCTL_CERT=\([^"]*\).*,\1,g' <<< $RUNLIKE)
-ETCDCTL_KEY=$(sed  's,^.*ETCDCTL_KEY=\([^"]*\).*,\1,g' <<< $RUNLIKE)
+ETCDCTL_CACERT=$(sed  's,^.*ETCDCTL_CACERT=\([^ ]*\).*,\1,g' <<< $RUNLIKE)
+ETCDCTL_CERT=$(sed  's,^.*ETCDCTL_CERT=\([^ ]*\).*,\1,g' <<< $RUNLIKE)
+ETCDCTL_KEY=$(sed  's,^.*ETCDCTL_KEY=\([^ ]*\).*,\1,g' <<< $RUNLIKE)
 ETCD_VERSION=$(sed  's,^.*rancher/coreos-etcd:\([^ ]*\).*,\1,g' <<< $RUNLIKE)
 INITIAL_ADVERTISE_PEER_URL=$(sed  's,^.*initial-advertise-peer-urls=\([^ ]*\).*,\1,g' <<< $RUNLIKE)
 ETCD_NAME=$(sed  's,^.*name=\([^ ]*\).*,\1,g' <<< $RUNLIKE)
