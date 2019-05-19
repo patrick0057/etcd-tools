@@ -16,6 +16,7 @@ docker update --restart=no etcd && docker stop etcd
 
 3. Run the restore:
 ```bash
+curl -LO https://github.com/patrick0057/etcd-tools/raw/master/restore-etcd-single.sh
 ./restore-etcd-single.sh </path/to/snapshot>
 ```
 
