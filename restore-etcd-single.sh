@@ -42,7 +42,7 @@ then
 fi
 #ADD CHECK FOR runlike image later.
 USAGE='Usage: ./restore-etcd-single.sh </path/to/snapshot>'
-if [[ $1 == '' ]] || [[ $@ =~ " -h" ]] || [[ $@ =~ " --help" ]]
+if [[ $1 == '' ]] || [[ $@ =~ " -h" ]] || [[ $1 = "-h" ]] || [[ $@ =~ " --help" ]] || [[ $1 =~ "--help" ]]
  then
  echo "${green}${USAGE}${reset}"
  exit 1
