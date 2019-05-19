@@ -92,9 +92,9 @@ rootcmd "mv /var/lib/etcd /var/lib/etcd-old--${ETCD_BACKUP_TIME}"
 
 ETCD_HOSTNAME=$(sed  's,^.*--hostname=\([^ ]*\).*,\1,g' <<< $RUNLIKE)
 ETCDCTL_ENDPOINT="https://0.0.0.0:2379"
-ETCDCTL_CACERT=$(sed  's,^.*ETCDCTL_CACERT=\([^"]*\).*,\1,g' <<< $RUNLIKE)
-ETCDCTL_CERT=$(sed  's,^.*ETCDCTL_CERT=\([^"]*\).*,\1,g' <<< $RUNLIKE)
-ETCDCTL_KEY=$(sed  's,^.*ETCDCTL_KEY=\([^"]*\).*,\1,g' <<< $RUNLIKE)
+ETCDCTL_CACERT=$(sed  's,^.*ETCDCTL_CACERT=\([^ ]*\).*,\1,g' <<< $RUNLIKE)
+ETCDCTL_CERT=$(sed  's,^.*ETCDCTL_CERT=\([^ ]*\).*,\1,g' <<< $RUNLIKE)
+ETCDCTL_KEY=$(sed  's,^.*ETCDCTL_KEY=\([^ ]*\).*,\1,g' <<< $RUNLIKE)
 ETCD_VERSION=$(sed  's,^.*rancher/coreos-etcd:\([^ ]*\).*,\1,g' <<< $RUNLIKE)
 INITIAL_ADVERTISE_PEER_URL=$(sed  's,^.*initial-advertise-peer-urls=\([^ ]*\).*,\1,g' <<< $RUNLIKE)
 ETCD_NAME=$(sed  's,^.*name=\([^ ]*\).*,\1,g' <<< $RUNLIKE)
