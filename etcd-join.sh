@@ -147,10 +147,10 @@ ADVERTISE_CLIENT_URLS=$(sed  's,^.*advertise-client-urls=\([^ ]*\).*,\1,g' <<< $
 REQUIRE_ENDPOINT=$(sshcmd "docker exec etcd netstat -lpna | grep \:2379 | grep tcp | grep LISTEN | tr -s ' ' | cut -d' ' -f4")
 if [[ $REQUIRE_ENDPOINT =~ ":::" ]]
 then
-    echo "${green} etcd is listening on ${REQUIRE_ENDPOINT}, no need to pass --endpoints${reset}"
+    echo "${green}etcd is listening on ${REQUIRE_ENDPOINT}, no need to pass --endpoints${reset}"
     ETCD_ADD_MEMBER_CMD="etcdctl --cacert $ETCDCTL_CACERT --cert $ETCDCTL_CERT --key ${ETCDCTL_KEY} member add ${ETCD_NAME} --peer-urls=${INITIAL_ADVERTISE_PEER_URL}"
     else
-        echo "${green} etcd is only listening on ${REQUIRE_ENDPOINT}, we need to pass --endpoints${reset}"
+        echo "${green}etcd is only listening on ${REQUIRE_ENDPOINT}, we need to pass --endpoints${reset}"
         ETCD_ADD_MEMBER_CMD="etcdctl --cacert $ETCDCTL_CACERT --cert $ETCDCTL_CERT --key ${ETCDCTL_KEY} member --endpoints ${REQUIRE_ENDPOINT} add ${ETCD_NAME} --peer-urls=${INITIAL_ADVERTISE_PEER_URL}"
 fi
 
@@ -244,7 +244,7 @@ docker start etcd
 
 if [ ! "$(docker ps --filter "name=^/etcd$" --format '{{.Names}}')" == "etcd" ]
 then
-        echo "${green} etcd is not running, something went wrong.${reset}"
+        echo "${green}etcd is not running, something went wrong.${reset}"
         exit 1
 fi
 echo "${green}etcd is running, checking etcd things before exitting.${reset}"
