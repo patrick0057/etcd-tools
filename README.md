@@ -1,7 +1,7 @@
 # etcd-tools
 This is a collection of etcd tools to do long and tedious tasks.  Currently there is a restore tool for restoring a snapshot to a single node and a join tool for rejoining other members after the restore has been completed on the single node.  This has been tested on RKE deployed clusters, Rancher deployed clusters (tested on aws) and Rancher custom clusters.
 
-1. Take an etcd snapshot before starting using one of the following commands (only one will work):
+1. Take an etcd snapshot before starting, using one of the following commands (only one will work):
 ```bash
 docker exec etcd etcdctl snapshot save /tmp/snapshot.db && docker cp etcd:/tmp/snapshot.db .
 ```
