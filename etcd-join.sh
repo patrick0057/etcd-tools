@@ -11,6 +11,7 @@ rootcmd () {
      $1
 fi
 }
+#Help menu
 if [[ $1 == '' ]] || [[ $2 == '' ]] || [[ $@ =~ " -h" ]] || [[ $1 = "-h" ]] || [[ $@ =~ " --help" ]] || [[ $1 =~ "--help" ]]
  then
  echo "${green}${USAGE}${reset}"
@@ -19,6 +20,14 @@ fi
 if [ "$(docker ps -a --filter "name=^/etcd-join$" --format '{{.Names}}')" == "etcd-join" ]
 then
     docker rm -f etcd-join
+fi
+#check for runlike container
+echo ${green}Gathering information about your etcd container${reset}
+RUNLIKE=$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock patrick0057/runlike etcd)
+if [[ $? -ne 0 ]]
+then
+ echo ${green}runlike container failed to run, aborting script!${reset}
+ exit 1
 fi
 REMOTE_SSH_USER=$1
 REMOTE_SSH_IP=$2
@@ -70,10 +79,6 @@ then
 fi
 echo ${green}I was able to inspect the etcd container!  Script will proceed...${reset}
 echo
-
-
-echo ${green}Gathering information about your etcd container${reset}
-RUNLIKE=$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock assaflavie/runlike etcd)
 
 
 
