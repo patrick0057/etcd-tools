@@ -125,7 +125,7 @@ sleep 10
 echo ${red}Stopping etcd-restore container${reset}
 docker stop etcd-restore
 
-echo ${red}Moving restored etcd directory in place{$reset}
+echo ${red}Moving restored etcd directory in place${reset}
 if [[ $EUID -ne 0 ]]; then
    echo "${green}Running as non root user, issuing command with sudo.${reset}" 
    sudo mv /opt/rke/etcd /var/lib/
