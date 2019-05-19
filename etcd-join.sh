@@ -22,8 +22,8 @@ then
     docker rm -f etcd-join
 fi
 #check for runlike container
-echo ${green}Gathering information about your etcd container${reset}
-RUNLIKE=$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock patrick0057/runlike etcd)
+echo ${green}Checking if runlike container works before we get too far into the script.${reset}
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock patrick0057/runlike etcd
 if [[ $? -ne 0 ]]
 then
  echo ${green}runlike container failed to run, aborting script!${reset}
@@ -81,6 +81,8 @@ echo ${green}I was able to inspect the etcd container!  Script will proceed...${
 echo
 
 
+echo ${green}Gathering information about your etcd container with runlike${reset}
+RUNLIKE=$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock patrick0057/runlike etcd)
 
 #GET ALL ENVIRONMENT VARIABLES ON HOST
 
