@@ -81,7 +81,7 @@ RUNLIKE=$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock assaflavi
 #/tmp/etcd-download-test/etcd --version
 #ETCDCTL_API=3 /tmp/etcd-download-test/etcdctl version
 
-echo ${red}Setting etcd restart policy to never restart \(no\)${reset}
+echo ${red}Setting etcd restart policy to never restart \"no\"${reset}
 docker update --restart=no etcd
 
 ETCD_BACKUP_TIME=$(date +%Y-%m-%d--%H%M%S)
