@@ -4,20 +4,16 @@
 red=`tput setaf 1`
 green=`tput setaf 2`
 reset=`tput sgr0`
+ETCD_BACKUP_TIME=$(date +%Y-%m-%d--%H%M%S)
+if [[ $? -ne 0 ]]
+then
+ echo ${green}Setting timestamp failed, does the \"date\" command exist\?${reset}
+ exit 1
+fi
 if [ -d "/opt/rke/etcd" ]
 then
-        echo ${green}/opt/rke/etcd exists, please move this directory out of the way and re-run the script${reset}
-        exit 1
-fi
-if [ ! -d "/var/lib/etcd" ]
-then
-        echo "${green}/var/lib/etcd doesn't exist, script has not accounted for this, exiting${reset}"
-        exit 1
-fi
-if [ ! -f "/etc/kubernetes/snapshot.db" ]
-then
-        echo "${green}/etc/kubernetes/snapshot.db does not exist, please place your snapshot here to have it restored.  Future versions will have options to handle this better${reset}"
-        exit 1
+        echo ${green}/opt/rke/etcd exists, moving it to /opt/rke/etcd--${ETCD_BACKUP_TIME}.${reset}
+        mv /opt/rke/etcd /opt/rke/etcd--${ETCD_BACKUP_TIME}
 fi
 if [ ! "$(docker ps -a --filter "name=^/etcd$" --format '{{.Names}}')" == "etcd" ]
 then
@@ -35,18 +31,56 @@ then
         exit 1
 fi
 #ADD CHECK FOR runlike image later.
+USAGE='Usage: ./restore-etcd-single.sh </path/to/snapshot>'
+if [[ $1 == '' ]] || [[ $@ =~ " -h" ]] || [[ $@ =~ " --help" ]]
+ then
+ echo "${green}${USAGE}${reset}"
+ exit 1
+fi
+RESTORE_SNAPSHOT=$1
+#check if image exists
+ls -lash $RESTORE_SNAPSHOT
+if [[ $? -ne 0 ]]
+then
+ echo ${green}Image $RESTORE_SNAPSHOT does not exist, aborting script!${reset}
+ exit 1
+fi
+#move stale snapshot out of way if it exists
+if [ -f "/etc/kubernetes/snapshot.db" ]
+then
+    mv /etc/kubernetes/snapshot.db /etc/kubernetes/snapshot.db--${ETCD_BACKUP_TIME}
+fi
+#move snapshot into place
+mv $RESTORE_SNAPSHOT /etc/kubernetes/snapshot.db
+if [[ $? -ne 0 ]]
+then
+ echo ${green}Failed to move $RESTORE_SNAPSHOT to /etc/kubernetes/snapshot.db, aborting script!${reset}
+ exit 1
+fi
+
 
 #container exists? etcd-restore etcd-reinit etcd
 RUNLIKE=$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock assaflavie/runlike etcd)
-echo ${red}Setting etcd restart policy to never restart \(no\)${reset}
+if [[ $? -ne 0 ]]
+then
+ echo ${green}runlike container failed to run, aborting script!${reset}
+ exit 1
+fi
+
+echo ${red}Setting etcd restart policy to never restart \"no\"${reset}
 docker update --restart=no etcd
-ETCD_BACKUP_TIME=$(date +%Y-%m-%d--%H%M%S)
 echo ${red}Renaming original etcd container to etcd-old--${ETCD_BACKUP_TIME}
 docker rename etcd etcd-old--${ETCD_BACKUP_TIME}
 echo ${red}Stopping original etcd container
 docker stop etcd-old--${ETCD_BACKUP_TIME}
+
 echo ${red}Moving old etcd data directory /var/lib/etcd to /var/lib/etcd-old--${ETCD_BACKUP_TIME}${reset}
-mv /var/lib/etcd /var/lib/etcd-old--${ETCD_BACKUP_TIME}
+if [[ $EUID -ne 0 ]]; then
+   echo "${green}Running as non root user, issuing command with sudo.${reset}" 
+   sudo mv /var/lib/etcd /var/lib/etcd-old--${ETCD_BACKUP_TIME}
+    else 
+    mv /var/lib/etcd /var/lib/etcd-old--${ETCD_BACKUP_TIME}
+fi
 
 ETCD_HOSTNAME=$(sed  's,^.*--hostname=\([^ ]*\).*,\1,g' <<< $RUNLIKE)
 ETCDCTL_ENDPOINT="https://0.0.0.0:2379"
@@ -83,6 +117,7 @@ RESTORE_RUNLIKE='docker run
 
 #RESTORE ETCD
 echo ${red}Restoring etcd snapshot${reset}
+echo $RESTORE_RUNLIKE
 eval $RESTORE_RUNLIKE
 echo ${green}Sleeping for 10 seconds so etcd can do its restore${reset}
 sleep 10
@@ -91,7 +126,12 @@ echo ${red}Stopping etcd-restore container${reset}
 docker stop etcd-restore
 
 echo ${red}Moving restored etcd directory in place{$reset}
-mv /opt/rke/etcd /var/lib/
+if [[ $EUID -ne 0 ]]; then
+   echo "${green}Running as non root user, issuing command with sudo.${reset}" 
+   sudo mv /opt/rke/etcd /var/lib/
+    else 
+    mv /opt/rke/etcd /var/lib/
+fi
 
 echo ${red}Deleting etcd-restore container${reset}
 docker rm -f etcd-restore
@@ -111,6 +151,7 @@ NEW_RUNLIKE=$(sed  's`'--name=etcd'`'--name=etcd-reinit'`g' <<< $NEW_RUNLIKE)
 
 #REINIT ETCD
 echo ${red}Running etcd-reinit${reset}
+echo $NEW_RUNLIKE
 eval $NEW_RUNLIKE
 echo ${green}Sleeping for 20 seconds so etcd can do reinit things${reset}
 sleep 20
@@ -131,7 +172,17 @@ NEW_RUNLIKE=$(sed  's`--force-new-cluster ``g' <<< $NEW_RUNLIKE)
 
 #FINALLY RUN NEW SHINY RESTORED ETCD
 echo ${red}Launching shiny new etcd${reset}
+echo $NEW_RUNLIKE
 eval $NEW_RUNLIKE
 
 echo ${red}Restarting kubelet and kube-apiserver if they exist${reset}
 docker restart kubelet kube-apiserver
+
+echo ${red}Removing /etc/kubernetes/snapshot.db${reset}
+rm -f /etc/kubernetes/snapshot.db
+
+echo ${red}Setting etcd restart policy to always restart${reset}
+docker update --restart=always etcd
+
+echo ${green}Single restore has completed, please be sure to restart kubelet and kube-apiserver on other nodes.${reset}
+echo ${green}If you are planning to rejoin another node to this etcd cluster you\'ll want to use etcd-join.sh on that node${reset}
