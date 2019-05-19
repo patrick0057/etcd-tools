@@ -58,6 +58,7 @@ INITIAL_ADVERTISE_PEER_URL=$(sed  's,^.*initial-advertise-peer-urls=\([^ ]*\).*,
 ETCD_NAME=$(sed  's,^.*name=\([^ ]*\).*,\1,g' <<< $RUNLIKE)
 INITIAL_CLUSTER=$(sed  's,^.*--initial-cluster=.*\('"$ETCD_NAME"'\)=\([^,^ ]*\).*,\1=\2,g' <<< $RUNLIKE)
 ETCD_SNAPSHOT_LOCATION='/etc/kubernetes/snapshot.db'
+INITIAL_CLUSTER_TOKEN=$(sed  's,^.*initial-cluster-token=\([^ ]*\).*,\1,g' <<< $RUNLIKE)
 
 RESTORE_RUNLIKE='docker run
 --name=etcd-restore
@@ -76,7 +77,7 @@ RESTORE_RUNLIKE='docker run
 -ti rancher/coreos-etcd:'$ETCD_VERSION' /usr/local/bin/etcdctl snapshot restore '$ETCD_SNAPSHOT_LOCATION'
 --initial-advertise-peer-urls='$INITIAL_ADVERTISE_PEER_URL'
 --initial-cluster='$INITIAL_CLUSTER'
---initial-cluster-token=etcd-cluster-1
+--initial-cluster-token='$INITIAL_CLUSTER_TOKEN'
 --data-dir=/opt/rke/etcd
 --name='$ETCD_NAME''
 
