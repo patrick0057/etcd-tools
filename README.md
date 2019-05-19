@@ -20,7 +20,7 @@ curl -LO https://github.com/patrick0057/etcd-tools/raw/master/restore-etcd-singl
 bash ./restore-etcd-single.sh </path/to/snapshot>
 ```
 
-4. Rejoin etcd nodes by running the following commands.  SSH key is option if you have a default one already set on your ssh account.
+4. Rejoin etcd nodes by running the following commands.  SSH key is optional if you have a default one already set on your ssh account.
 ```bash
 curl -LO https://github.com/patrick0057/etcd-tools/raw/master/etcd-join.sh
 bash ./etcd-join.sh <ssh user> <remote etcd IP> [path to ssh key for remote box]
