@@ -40,7 +40,7 @@ then
         echo "${green} etcd-reinit container exists, please remove this container before running the script${reset}"
         exit 1
 fi
-#ADD CHECK FOR runlike image later.
+#Help menu
 USAGE='Usage: ./restore-etcd-single.sh </path/to/snapshot>'
 if [[ $1 == '' ]] || [[ $@ =~ " -h" ]] || [[ $1 = "-h" ]] || [[ $@ =~ " --help" ]] || [[ $1 =~ "--help" ]]
  then
@@ -72,8 +72,8 @@ then
 fi
 
 
-#container exists? etcd-restore etcd-reinit etcd
-RUNLIKE=$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock assaflavie/runlike etcd)
+#check for runlike container
+RUNLIKE=$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock patrick0057/runlike etcd)
 if [[ $? -ne 0 ]]
 then
  echo ${green}runlike container failed to run, aborting script!${reset}
@@ -84,7 +84,7 @@ echo ${red}Setting etcd restart policy to never restart \"no\"${reset}
 docker update --restart=no etcd
 echo ${red}Renaming original etcd container to etcd-old--${ETCD_BACKUP_TIME}
 docker rename etcd etcd-old--${ETCD_BACKUP_TIME}
-echo ${red}Stopping original etcd container
+echo ${red}Stopping original etcd container${reset}
 docker stop etcd-old--${ETCD_BACKUP_TIME}
 
 echo ${red}Moving old etcd data directory /var/lib/etcd to /var/lib/etcd-old--${ETCD_BACKUP_TIME}${reset}
