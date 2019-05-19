@@ -127,8 +127,8 @@ RESTORE_RUNLIKE='docker run
 echo ${red}Restoring etcd snapshot${reset}
 echo $RESTORE_RUNLIKE
 eval $RESTORE_RUNLIKE
-echo ${green}Sleeping for 10 seconds so etcd can do its restore${reset}
-sleep 10
+#echo ${green}Sleeping for 10 seconds so etcd can do its restore${reset}
+#sleep 10
 
 echo ${red}Stopping etcd-restore container${reset}
 docker stop etcd-restore
@@ -156,8 +156,8 @@ NEW_RUNLIKE=$(sed  's`'--name=etcd'`'--name=etcd-reinit'`g' <<< $NEW_RUNLIKE)
 echo ${red}Running etcd-reinit${reset}
 echo $NEW_RUNLIKE
 eval $NEW_RUNLIKE
-echo ${green}Sleeping for 20 seconds so etcd can do reinit things${reset}
-sleep 20
+echo ${green}Sleeping for 10 seconds so etcd can do reinit things${reset}
+sleep 10
 
 #echo ${green}Tailing last 40 lines of etcd-reinit${reset}
 #docker logs etcd-reinit --tail 40
