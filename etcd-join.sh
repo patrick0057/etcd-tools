@@ -250,10 +250,10 @@ fi
 echo "${green}etcd is running, checking etcd things before exitting.${reset}"
 if [[ $REQUIRE_ENDPOINT =~ ":::" ]]
 then
-    echo "${green} etcd is listening on ${REQUIRE_ENDPOINT}, no need to pass --endpoints${reset}"
+    echo "${green}etcd is listening on ${REQUIRE_ENDPOINT}, no need to pass --endpoints${reset}"
     sshcmd "docker exec etcd etcdctl member list"
     else
-        echo "${green} etcd is only listening on ${REQUIRE_ENDPOINT}, we need to pass --endpoints${reset}"
+        echo "${green}etcd is only listening on ${REQUIRE_ENDPOINT}, we need to pass --endpoints${reset}"
         sshcmd "docker exec etcd etcdctl --endpoints ${REQUIRE_ENDPOINT} member list"
 fi
 
