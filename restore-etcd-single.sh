@@ -193,10 +193,10 @@ docker update --restart=always etcd
 REQUIRE_ENDPOINT=$(docker exec etcd netstat -lpna | grep \:2379 | grep tcp | grep LISTEN | tr -s ' ' | cut -d' ' -f4)
 if [[ $REQUIRE_ENDPOINT =~ ":::" ]]
 then
-    echo "${green} etcd is listening on ${REQUIRE_ENDPOINT}, no need to pass --endpoints${reset}"
+    echo "${green}etcd is listening on ${REQUIRE_ENDPOINT}, no need to pass --endpoints${reset}"
     docker exec etcd etcdctl member list
     else
-        echo "${green} etcd is only listening on ${REQUIRE_ENDPOINT}, we need to pass --endpoints${reset}"
+        echo "${green}etcd is only listening on ${REQUIRE_ENDPOINT}, we need to pass --endpoints${reset}"
         docker exec etcd etcdctl --endpoints ${REQUIRE_ENDPOINT} member list
 fi
 
