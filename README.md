@@ -34,6 +34,17 @@ curl -LO https://github.com/patrick0057/etcd-tools/raw/master/etcd-join.sh
 bash ./etcd-join.sh MANUAL_MODE
 ```
 
+NOTE: If you are using etcd-join.sh to rejoin a node to a cluster that wasn't recently restored with restore-etcd-single.sh, then you will want to make sure the etcd node is not a member of the etcd cluster before running the script.  If it is a member then it will fail to rejoin.  Examples below for clusters that require --endpoints and clusters that don't.
+```bash
+docker exec etcd sh -c "etcdctl --endpoints=\$ETCDCTL_ENDPOINT member list"
+docker exec etcd sh -c "etcdctl --endpoints=\$ETCDCTL_ENDPOINT member remove <id>"
+```
+
+```bash
+docker exec etcd sh -c "etcdctl member list"
+docker exec etcd sh -c "etcdctl member remove <id>"
+```
+
 5. Restart kubelet and kube-apiserver on all servers where it has not been restarted for you by the script already.
 ```bash
 docker restart kubelet kube-apiserver
