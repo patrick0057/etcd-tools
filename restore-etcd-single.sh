@@ -12,9 +12,20 @@ rootcmd() {
                 $1
         fi
 }
-
+function checkpipecmd() {
+    RC=("${PIPESTATUS[@]}")
+    if [[ "$2" != "" ]]; then
+        PIPEINDEX=$2
+    else
+        PIPEINDEX=0
+    fi
+    if [ "${RC[${PIPEINDEX}]}" != "0" ]; then
+        echo "${green}$1${reset}"
+        exit 1
+    fi
+}
 if [[ $? -ne 0 ]]; then
-        echo ${green}Setting timestamp failed, does the \"date\" command exist\?${reset}
+        echo "${green}Setting timestamp failed, does the \"date\" command exist\?${reset}"
         exit 1
 fi
 if [ -d "/opt/rke/etcd" ]; then
@@ -44,37 +55,36 @@ RESTORE_SNAPSHOT=$1
 #check if image exists
 ls -lash $RESTORE_SNAPSHOT
 if [[ $? -ne 0 ]]; then
-        echo ${green}Image $RESTORE_SNAPSHOT does not exist, aborting script!${reset}
+        echo "${green}Image $RESTORE_SNAPSHOT does not exist, aborting script!${reset}"
         exit 1
 fi
 #move stale snapshot out of way if it exists
 if [ -f "/etc/kubernetes/snapshot.db" ]; then
-        echo ${red}Found stale snapshot at /etc/kubernetes/snapshot.db, moving it out of the way to /etc/kubernetes/snapshot.db--${ETCD_BACKUP_TIME}${reset}
+        echo "${red}Found stale snapshot at /etc/kubernetes/snapshot.db, moving it out of the way to /etc/kubernetes/snapshot.db--${ETCD_BACKUP_TIME}${reset}"
         rootcmd "mv /etc/kubernetes/snapshot.db /etc/kubernetes/snapshot.db--${ETCD_BACKUP_TIME}"
 fi
 #copy snapshot into place
-echo ${red}Copying $RESTORE_SNAPSHOT to /etc/kubernetes/snapshot.db ${reset}
+echo "${red}Copying $RESTORE_SNAPSHOT to /etc/kubernetes/snapshot.db ${reset}"
 rootcmd "cp $RESTORE_SNAPSHOT /etc/kubernetes/snapshot.db"
-if [[ $? -ne 0 ]]; then
-        echo ${green}Failed to copy $RESTORE_SNAPSHOT to /etc/kubernetes/snapshot.db, aborting script!${reset}
-        exit 1
-fi
+checkpipecmd "${green}Failed to copy $RESTORE_SNAPSHOT to /etc/kubernetes/snapshot.db, aborting script!${reset}"
+
 
 #check for runlike container
 RUNLIKE=$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock patrick0057/runlike etcd)
-if [[ $? -ne 0 ]]; then
-        echo ${green}runlike container failed to run, aborting script!${reset}
-        exit 1
-fi
+checkpipecmd "${green}runlike container failed to run, aborting script!${reset}"
 
-echo ${red}Setting etcd restart policy to never restart \"no\"${reset}
+
+echo "${red}Setting etcd restart policy to never restart \"no\"${reset}"
 docker update --restart=no etcd
-echo ${red}Renaming original etcd container to etcd-old--${ETCD_BACKUP_TIME}
+echo "${red}Renaming original etcd container to etcd-old--${ETCD_BACKUP_TIME}${reset}"
 docker rename etcd etcd-old--${ETCD_BACKUP_TIME}
-echo ${red}Stopping original etcd container${reset}
-docker stop etcd-old--${ETCD_BACKUP_TIME}
+checkpipecmd "Failed to rename etcd to etcd-old--${ETCD_BACKUP_TIME}, aborting script!"
 
-echo ${red}Moving old etcd data directory /var/lib/etcd to /var/lib/etcd-old--${ETCD_BACKUP_TIME}${reset}
+echo "${red}Stopping original etcd container${reset}"
+docker stop etcd-old--${ETCD_BACKUP_TIME}
+checkpipecmd "Failed to stop etcd-old--${ETCD_BACKUP_TIME}"
+
+echo "${red}Moving old etcd data directory /var/lib/etcd to /var/lib/etcd-old--${ETCD_BACKUP_TIME}${reset}"
 rootcmd "mv /var/lib/etcd /var/lib/etcd-old--${ETCD_BACKUP_TIME}"
 
 ETCD_HOSTNAME=$(sed 's,^.*--hostname=\([^ ]*\).*,\1,g' <<<$RUNLIKE)
@@ -111,13 +121,14 @@ RESTORE_RUNLIKE='docker run
 --name='$ETCD_NAME''
 
 #RESTORE ETCD
-echo ${red}Restoring etcd snapshot${reset}
+echo "${red}Restoring etcd snapshot${reset}"
 echo $RESTORE_RUNLIKE
 eval $RESTORE_RUNLIKE
+checkpipecmd "Failed to restore etcd snapshot!"
 #echo ${green}Sleeping for 10 seconds so etcd can do its restore${reset}
 #sleep 10
 
-echo ${red}Stopping etcd-restore container${reset}
+echo "${red}Stopping etcd-restore container${reset}"
 docker stop etcd-restore
 
 echo ${red}Moving restored etcd directory in place${reset}
@@ -140,17 +151,18 @@ NEW_RUNLIKE=$(sed 's`'"$ORIG_INITIAL_CLUSTER"'`'"$INITIAL_CLUSTER"'`g' <<<$NEW_R
 NEW_RUNLIKE=$(sed 's`'--name=etcd'`'--name=etcd-reinit'`g' <<<$NEW_RUNLIKE)
 
 #REINIT ETCD
-echo ${red}Running etcd-reinit${reset}
+echo "${red}Running etcd-reinit${reset}"
 echo $NEW_RUNLIKE
 eval $NEW_RUNLIKE
-echo ${green}Sleeping for 10 seconds so etcd can do reinit things${reset}
+checkpipecmd "Failed to run etcd-reinit!"
+echo "${green}Sleeping for 10 seconds so etcd can do reinit things${reset}"
 sleep 10
 
 #echo ${green}Tailing last 40 lines of etcd-reinit${reset}
 #docker logs etcd-reinit --tail 40
 
 #STOP AND REMOVE etcd-reinit
-echo ${red}Stopping and removing etcd-reinit${reset}
+echo "${red}Stopping and removing etcd-reinit${reset}"
 docker stop etcd-reinit
 docker rm -f etcd-reinit
 
@@ -161,22 +173,27 @@ NEW_RUNLIKE=$(sed 's`'--name=etcd-reinit'`'--name=etcd'`g' <<<$NEW_RUNLIKE)
 NEW_RUNLIKE=$(sed 's`--force-new-cluster ``g' <<<$NEW_RUNLIKE)
 
 #FINALLY RUN NEW SHINY RESTORED ETCD
-echo ${red}Launching shiny new etcd${reset}
+echo "${red}Launching shiny new etcd${reset}"
 echo $NEW_RUNLIKE
 eval $NEW_RUNLIKE
+checkpipecmd "Failed to launch shiny new etcd!"
+echo "${green}Script sleeping for 5 seconds${reset}"
+sleep 5
+echo
 
-echo ${red}Restarting kubelet and kube-apiserver if they exist${reset}
+echo "${red}Restarting kubelet and kube-apiserver if they exist${reset}"
 docker restart kubelet kube-apiserver
 
-echo ${red}Removing /etc/kubernetes/snapshot.db${reset}
+echo "${red}Removing /etc/kubernetes/snapshot.db${reset}"
 #rootcmd "mv /etc/kubernetes/snapshot.db /etc/kubernetes/snapshot.db--${ETCD_BACKUP_TIME}"
 rootcmd "rm -f /etc/kubernetes/snapshot.db"
 
-echo ${red}Setting etcd restart policy to always restart${reset}
+echo "${red}Setting etcd restart policy to always restart${reset}"
 docker update --restart=always etcd
 
 #PRINT OUT MEMBER LIST
 #CHECK IF WE NEED TO ADD --endpoints TO THE COMMAND
+echo "${green}Running an 'etcdctl member list' as a final test.${reset}"
 REQUIRE_ENDPOINT=$(docker exec etcd netstat -lpna | grep \:2379 | grep tcp | grep LISTEN | tr -s ' ' | cut -d' ' -f4)
 if [[ $REQUIRE_ENDPOINT =~ ":::" ]]; then
         echo "${green}etcd is listening on ${REQUIRE_ENDPOINT}, no need to pass --endpoints${reset}"
@@ -186,5 +203,5 @@ else
         docker exec etcd etcdctl --endpoints ${REQUIRE_ENDPOINT} member list
 fi
 
-echo ${green}Single restore has completed, please be sure to restart kubelet and kube-apiserver on other nodes.${reset}
-echo ${green}If you are planning to rejoin another node to this etcd cluster you\'ll want to use etcd-join.sh on that node${reset}
+echo "${green}Single restore has completed, please be sure to restart kubelet and kube-apiserver on other nodes.${reset}"
+echo "${green}If you are planning to rejoin another node to this etcd cluster you'll want to use etcd-join.sh on that node${reset}"
