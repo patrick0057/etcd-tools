@@ -45,7 +45,8 @@ if [ "$(docker ps -a --filter "name=^/etcd-reinit$" --format '{{.Names}}')" == "
         exit 1
 fi
 #Help menu
-USAGE='Usage: ./restore-etcd-single.sh </path/to/snapshot>'
+USAGE='Usage: ./restore-etcd-single.sh </path/to/snapshot>
+Ensure etcd is shutdown of all other nodes except this one:  docker update --restart=no etcd && docker stop etcd'
 if [[ $1 == '' ]] || [[ $@ =~ " -h" ]] || [[ $1 == "-h" ]] || [[ $@ =~ " --help" ]] || [[ $1 =~ "--help" ]]; then
         echo "${green}${USAGE}${reset}"
         exit 1
