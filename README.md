@@ -20,6 +20,11 @@ curl -LO https://github.com/patrick0057/etcd-tools/raw/master/restore-etcd-singl
 bash ./restore-etcd-single.sh </path/to/snapshot>
 ```
 
+You can also restore lost quorum with the following command instead:
+```bash
+bash ./restore-etcd-single.sh FORCE_NEW_CLUSTER
+```
+
 4. Rejoin etcd nodes by running the following commands.  SSH key is optional if you have a default one already set on your ssh account.
 
 Automatic mode:
