@@ -3,6 +3,10 @@ red=$(tput setaf 1)
 green=$(tput setaf 2)
 reset=$(tput sgr0)
 ETCD_BACKUP_TIME=$(date +%Y-%m-%d--%H%M%S)
+if [[ $? -ne 0 ]]; then
+        echo "${green}Setting timestamp failed, does the \"date\" command exist\?${reset}"
+        exit 1
+fi
 
 rootcmd() {
         if [[ $EUID -ne 0 ]]; then
@@ -13,21 +17,18 @@ rootcmd() {
         fi
 }
 function checkpipecmd() {
-    RC=("${PIPESTATUS[@]}")
-    if [[ "$2" != "" ]]; then
-        PIPEINDEX=$2
-    else
-        PIPEINDEX=0
-    fi
-    if [ "${RC[${PIPEINDEX}]}" != "0" ]; then
-        echo "${green}$1${reset}"
-        exit 1
-    fi
+        RC=("${PIPESTATUS[@]}")
+        if [[ "$2" != "" ]]; then
+                PIPEINDEX=$2
+        else
+                PIPEINDEX=0
+        fi
+        if [ "${RC[${PIPEINDEX}]}" != "0" ]; then
+                echo "${green}$1${reset}"
+                exit 1
+        fi
 }
-if [[ $? -ne 0 ]]; then
-        echo "${green}Setting timestamp failed, does the \"date\" command exist\?${reset}"
-        exit 1
-fi
+
 if [ -d "/opt/rke/etcd" ]; then
         echo ${green}/opt/rke/etcd exists, moving it to /opt/rke/etcd--${ETCD_BACKUP_TIME}.${reset}
         rootcmd "mv /opt/rke/etcd /opt/rke/etcd--${ETCD_BACKUP_TIME}"
@@ -45,35 +46,37 @@ if [ "$(docker ps -a --filter "name=^/etcd-reinit$" --format '{{.Names}}')" == "
         exit 1
 fi
 #Help menu
-USAGE='Usage: ./restore-etcd-single.sh </path/to/snapshot>
-Ensure etcd is shutdown of all other nodes except this one:  docker update --restart=no etcd && docker stop etcd'
+USAGE='To restore a snapshot: ./restore-etcd-single.sh </path/to/snapshot>
+To restore lost quorum to a single node and remove other members without a snapshot: ./restore-etcd-single.sh FORCE_NEW_CLUSTER'
 if [[ $1 == '' ]] || [[ $@ =~ " -h" ]] || [[ $1 == "-h" ]] || [[ $@ =~ " --help" ]] || [[ $1 =~ "--help" ]]; then
         echo "${green}${USAGE}${reset}"
         exit 1
 fi
 
-RESTORE_SNAPSHOT=$1
-#check if image exists
-ls -lash $RESTORE_SNAPSHOT
-if [[ $? -ne 0 ]]; then
-        echo "${green}Image $RESTORE_SNAPSHOT does not exist, aborting script!${reset}"
-        exit 1
+if [[ $1 == 'FORCE_NEW_CLUSTER' ]]; then
+        FORCE_NEW_CLUSTER=yes
+else
+        RESTORE_SNAPSHOT=$1
+        #check if image exists
+        ls -lash $RESTORE_SNAPSHOT
+        if [[ $? -ne 0 ]]; then
+                echo "${green}Image $RESTORE_SNAPSHOT does not exist, aborting script!${reset}"
+                exit 1
+        fi
+        #move stale snapshot out of way if it exists
+        if [ -f "/etc/kubernetes/snapshot.db" ]; then
+                echo "${red}Found stale snapshot at /etc/kubernetes/snapshot.db, moving it out of the way to /etc/kubernetes/snapshot.db--${ETCD_BACKUP_TIME}${reset}"
+                rootcmd "mv /etc/kubernetes/snapshot.db /etc/kubernetes/snapshot.db--${ETCD_BACKUP_TIME}"
+        fi
+        #copy snapshot into place
+        echo "${red}Copying $RESTORE_SNAPSHOT to /etc/kubernetes/snapshot.db ${reset}"
+        rootcmd "cp $RESTORE_SNAPSHOT /etc/kubernetes/snapshot.db"
+        checkpipecmd "${green}Failed to copy $RESTORE_SNAPSHOT to /etc/kubernetes/snapshot.db, aborting script!${reset}"
 fi
-#move stale snapshot out of way if it exists
-if [ -f "/etc/kubernetes/snapshot.db" ]; then
-        echo "${red}Found stale snapshot at /etc/kubernetes/snapshot.db, moving it out of the way to /etc/kubernetes/snapshot.db--${ETCD_BACKUP_TIME}${reset}"
-        rootcmd "mv /etc/kubernetes/snapshot.db /etc/kubernetes/snapshot.db--${ETCD_BACKUP_TIME}"
-fi
-#copy snapshot into place
-echo "${red}Copying $RESTORE_SNAPSHOT to /etc/kubernetes/snapshot.db ${reset}"
-rootcmd "cp $RESTORE_SNAPSHOT /etc/kubernetes/snapshot.db"
-checkpipecmd "${green}Failed to copy $RESTORE_SNAPSHOT to /etc/kubernetes/snapshot.db, aborting script!${reset}"
-
 
 #check for runlike container
 RUNLIKE=$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock patrick0057/runlike etcd)
 checkpipecmd "${green}runlike container failed to run, aborting script!${reset}"
-
 
 echo "${red}Setting etcd restart policy to never restart \"no\"${reset}"
 docker update --restart=no etcd
@@ -85,8 +88,14 @@ echo "${red}Stopping original etcd container${reset}"
 docker stop etcd-old--${ETCD_BACKUP_TIME}
 checkpipecmd "Failed to stop etcd-old--${ETCD_BACKUP_TIME}"
 
-echo "${red}Moving old etcd data directory /var/lib/etcd to /var/lib/etcd-old--${ETCD_BACKUP_TIME}${reset}"
-rootcmd "mv /var/lib/etcd /var/lib/etcd-old--${ETCD_BACKUP_TIME}"
+if [[ "$FORCE_NEW_CLUSTER" == "yes" ]]; then
+        echo "${red}Copying old etcd data directory /var/lib/etcd to /var/lib/etcd-old--${ETCD_BACKUP_TIME}${reset}"
+        rootcmd "cp -arfv /var/lib/etcd /var/lib/etcd-old--${ETCD_BACKUP_TIME}"
+        checkpipecmd "Failed to copy /var/lib/etcd to /var/lib/etcd-old--${ETCD_BACKUP_TIME}, aborting script!"
+else
+        echo "${red}Moving old etcd data directory /var/lib/etcd to /var/lib/etcd-old--${ETCD_BACKUP_TIME}${reset}"
+        rootcmd "mv /var/lib/etcd /var/lib/etcd-old--${ETCD_BACKUP_TIME}"
+fi
 
 ETCD_HOSTNAME=$(sed 's,^.*--hostname=\([^ ]*\).*,\1,g' <<<$RUNLIKE)
 ETCDCTL_ENDPOINT="https://0.0.0.0:2379"
@@ -100,7 +109,8 @@ INITIAL_CLUSTER=$(sed 's,^.*--initial-cluster=.*\('"$ETCD_NAME"'\)=\([^,^ ]*\).*
 ETCD_SNAPSHOT_LOCATION='/etc/kubernetes/snapshot.db'
 INITIAL_CLUSTER_TOKEN=$(sed 's,^.*initial-cluster-token=\([^ ]*\).*,\1,g' <<<$RUNLIKE)
 
-RESTORE_RUNLIKE='docker run
+if [[ "$FORCE_NEW_CLUSTER" != "yes" ]]; then
+        RESTORE_RUNLIKE='docker run
 --name=etcd-restore
 --hostname='$ETCD_HOSTNAME'
 --env="ETCDCTL_API=3"
@@ -121,22 +131,23 @@ RESTORE_RUNLIKE='docker run
 --data-dir=/opt/rke/etcd
 --name='$ETCD_NAME''
 
-#RESTORE ETCD
-echo "${red}Restoring etcd snapshot${reset}"
-echo $RESTORE_RUNLIKE
-eval $RESTORE_RUNLIKE
-checkpipecmd "Failed to restore etcd snapshot!"
-#echo ${green}Sleeping for 10 seconds so etcd can do its restore${reset}
-#sleep 10
+        #RESTORE ETCD
+        echo "${red}Restoring etcd snapshot${reset}"
+        echo $RESTORE_RUNLIKE
+        eval $RESTORE_RUNLIKE
+        checkpipecmd "Failed to restore etcd snapshot!"
+        #echo ${green}Sleeping for 10 seconds so etcd can do its restore${reset}
+        #sleep 10
 
-echo "${red}Stopping etcd-restore container${reset}"
-docker stop etcd-restore
+        echo "${red}Stopping etcd-restore container${reset}"
+        docker stop etcd-restore
 
-echo ${red}Moving restored etcd directory in place${reset}
-rootcmd "mv /opt/rke/etcd /var/lib/"
+        echo ${red}Moving restored etcd directory in place${reset}
+        rootcmd "mv /opt/rke/etcd /var/lib/"
 
-echo ${red}Deleting etcd-restore container${reset}
-docker rm -f etcd-restore
+        echo ${red}Deleting etcd-restore container${reset}
+        docker rm -f etcd-restore
+fi
 
 #INITIALIZE NEW RUNLIKE
 NEW_RUNLIKE=$RUNLIKE
@@ -185,9 +196,11 @@ echo
 echo "${red}Restarting kubelet and kube-apiserver if they exist${reset}"
 docker restart kubelet kube-apiserver
 
-echo "${red}Removing /etc/kubernetes/snapshot.db${reset}"
-#rootcmd "mv /etc/kubernetes/snapshot.db /etc/kubernetes/snapshot.db--${ETCD_BACKUP_TIME}"
-rootcmd "rm -f /etc/kubernetes/snapshot.db"
+if [[ "$FORCE_NEW_CLUSTER" != "yes" ]]; then
+        echo "${red}Removing /etc/kubernetes/snapshot.db${reset}"
+        #rootcmd "mv /etc/kubernetes/snapshot.db /etc/kubernetes/snapshot.db--${ETCD_BACKUP_TIME}"
+        rootcmd "rm -f /etc/kubernetes/snapshot.db"
+fi
 
 echo "${red}Setting etcd restart policy to always restart${reset}"
 docker update --restart=always etcd
