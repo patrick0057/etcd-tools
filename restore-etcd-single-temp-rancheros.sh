@@ -89,12 +89,12 @@ docker stop etcd-old--${ETCD_BACKUP_TIME}
 checkpipecmd "Failed to stop etcd-old--${ETCD_BACKUP_TIME}"
 
 if [[ "$FORCE_NEW_CLUSTER" == "yes" ]]; then
-        echo "${red}Copying old etcd data directory /var/lib/etcd to /var/lib/etcd-old--${ETCD_BACKUP_TIME}${reset}"
-        rootcmd "cp -arfv /var/lib/etcd /var/lib/etcd-old--${ETCD_BACKUP_TIME}"
-        checkpipecmd "Failed to copy /var/lib/etcd to /var/lib/etcd-old--${ETCD_BACKUP_TIME}, aborting script!"
+        echo "${red}Copying old etcd data directory /opt/rke/var/lib/etcd to /opt/rke/var/lib/etcd-old--${ETCD_BACKUP_TIME}${reset}"
+        rootcmd "cp -arfv /opt/rke/var/lib/etcd /opt/rke/var/lib/etcd-old--${ETCD_BACKUP_TIME}"
+        checkpipecmd "Failed to copy /opt/rke/var/lib/etcd to /opt/rke/var/lib/etcd-old--${ETCD_BACKUP_TIME}, aborting script!"
 else
-        echo "${red}Moving old etcd data directory /var/lib/etcd to /var/lib/etcd-old--${ETCD_BACKUP_TIME}${reset}"
-        rootcmd "mv /var/lib/etcd /var/lib/etcd-old--${ETCD_BACKUP_TIME}"
+        echo "${red}Moving old etcd data directory /opt/rke/var/lib/etcd to /opt/rke/var/lib/etcd-old--${ETCD_BACKUP_TIME}${reset}"
+        rootcmd "mv /opt/rke/var/lib/etcd /opt/rke/var/lib/etcd-old--${ETCD_BACKUP_TIME}"
 fi
 
 ETCD_HOSTNAME=$(sed 's,^.*--hostname=\([^ ]*\).*,\1,g' <<<$RUNLIKE)
@@ -119,8 +119,8 @@ if [[ "$FORCE_NEW_CLUSTER" != "yes" ]]; then
 --env="ETCDCTL_CERT='$ETCDCTL_CERT'"
 --env="ETCDCTL_KEY='$ETCDCTL_KEY'"
 --env="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
---volume="/var/lib/etcd:/var/lib/rancher/etcd/:z"
---volume="/etc/kubernetes:/etc/kubernetes:z"
+--volume="/opt/rke/var/lib/etcd:/var/lib/rancher/etcd/:z"
+--volume="/opt/rke/etc/kubernetes:/etc/kubernetes:z"
 --volume="/opt/rke:/opt/rke:z"
 --network=host
 --label io.rancher.rke.container.name="etcd"
