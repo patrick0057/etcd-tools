@@ -1,8 +1,10 @@
 # etcd-tools
 This is a collection of etcd tools to do long and tedious tasks.  Currently there is a restore tool for restoring a snapshot to a single node and a join tool for rejoining other members after the restore has been completed on the single node.  This has been tested on RKE deployed clusters, Rancher deployed clusters (tested on aws) and Rancher custom clusters.  These tools assume you have not changed node IP's or removed the cluster from the Rancher interface.  If either of these things have been done, your cluster will not be in a healthy state after restore.
 
-If you are using RancherOS please use the temporary separate scripts for Rancher OS as shown below.
+If you are using RancherOS please use the temporary separate scripts for Rancher OS instead as shown below.
 ```bash
+wget https://github.com/patrick0057/etcd-tools/raw/master/restore-etcd-single-temp-rancheros.sh
+wget https://github.com/patrick0057/etcd-tools/raw/master/etcd-join-temp-rancheros.sh
 ```
 
 
