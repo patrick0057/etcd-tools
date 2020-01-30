@@ -1,7 +1,9 @@
 #!/bin/bash
-red=$(tput setaf 1)
-green=$(tput setaf 2)
-reset=$(tput sgr0)
+if hash tput 2>/dev/null; then
+    red=$(tput setaf 1)
+    green=$(tput setaf 2)
+    reset=$(tput sgr0)
+fi
 ETCD_BACKUP_TIME=$(date +%Y-%m-%d--%H%M%S)
 if [[ $? -ne 0 ]]; then
         echo "${green}Setting timestamp failed, does the \"date\" command exist\?${reset}"
@@ -28,9 +30,34 @@ function checkpipecmd() {
                 exit 1
         fi
 }
+function grecho() {
+    echo "${green}$1${reset}"
+}
+function recho() {
+    echo "${red}$1${reset}"
+}
+if [[ -d "/opt/rke/var/lib/etcd" ]]; then
+    ETCD_DIR="/opt/rke/var/lib/etcd"
+    elif [[ -d "/var/lib/etcd" ]]; then
+        ETCD_DIR="/var/lib/etcd"
+        else
+            grecho "Unable to locate an etcd directory, exiting script!"
+            exit 1
+fi
+grecho "Found ${ETCD_DIR}, setting ETCD_DIR to this value"
+
+if [[ -d "/opt/rke/etc/kubernetes" ]]; then
+    CERT_DIR="/opt/rke/etc/kubernetes"
+    elif [[ -d "/etc/kubernetes" ]]; then
+        CERT_DIR="/etc/kubernetes"
+        else
+            grecho "Unable to locate the kubernetes certificate directory, exiting script!"
+            exit 1        
+fi
+grecho "Found ${CERT_DIR}, setting CERT_DIR to this value"
 
 if [ -d "/opt/rke/etcd" ]; then
-        echo ${green}/opt/rke/etcd exists, moving it to /opt/rke/etcd--${ETCD_BACKUP_TIME}.${reset}
+        echo "${green}/opt/rke/etcd exists, moving it to /opt/rke/etcd--${ETCD_BACKUP_TIME}.${reset}"
         rootcmd "mv /opt/rke/etcd /opt/rke/etcd--${ETCD_BACKUP_TIME}"
 fi
 if [ ! "$(docker ps -a --filter "name=^/etcd$" --format '{{.Names}}')" == "etcd" ]; then
@@ -64,15 +91,18 @@ else
                 exit 1
         fi
         #move stale snapshot out of way if it exists
-        if [ -f "/etc/kubernetes/snapshot.db" ]; then
-                echo "${red}Found stale snapshot at /etc/kubernetes/snapshot.db, moving it out of the way to /etc/kubernetes/snapshot.db--${ETCD_BACKUP_TIME}${reset}"
-                rootcmd "mv /etc/kubernetes/snapshot.db /etc/kubernetes/snapshot.db--${ETCD_BACKUP_TIME}"
+        if [ -f "${CERT_DIR}/snapshot.db" ]; then
+                echo "${red}Found stale snapshot at ${CERT_DIR}/snapshot.db, moving it out of the way to ${CERT_DIR}/snapshot.db--${ETCD_BACKUP_TIME}${reset}"
+                rootcmd "mv ${CERT_DIR}/snapshot.db ${CERT_DIR}/snapshot.db--${ETCD_BACKUP_TIME}"
         fi
         #copy snapshot into place
-        echo "${red}Copying $RESTORE_SNAPSHOT to /etc/kubernetes/snapshot.db ${reset}"
-        rootcmd "cp $RESTORE_SNAPSHOT /etc/kubernetes/snapshot.db"
-        checkpipecmd "${green}Failed to copy $RESTORE_SNAPSHOT to /etc/kubernetes/snapshot.db, aborting script!${reset}"
+        echo "${red}Copying $RESTORE_SNAPSHOT to ${CERT_DIR}/snapshot.db ${reset}"
+        rootcmd "cp $RESTORE_SNAPSHOT ${CERT_DIR}/snapshot.db"
+        checkpipecmd "${green}Failed to copy $RESTORE_SNAPSHOT to ${CERT_DIR}/snapshot.db, aborting script!${reset}"
 fi
+
+
+
 
 #check for runlike container
 RUNLIKE=$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock patrick0057/runlike etcd)
@@ -88,13 +118,15 @@ echo "${red}Stopping original etcd container${reset}"
 docker stop etcd-old--${ETCD_BACKUP_TIME}
 checkpipecmd "Failed to stop etcd-old--${ETCD_BACKUP_TIME}"
 
+
+
 if [[ "$FORCE_NEW_CLUSTER" == "yes" ]]; then
-        echo "${red}Copying old etcd data directory /var/lib/etcd to /var/lib/etcd-old--${ETCD_BACKUP_TIME}${reset}"
-        rootcmd "cp -arfv /var/lib/etcd /var/lib/etcd-old--${ETCD_BACKUP_TIME}"
-        checkpipecmd "Failed to copy /var/lib/etcd to /var/lib/etcd-old--${ETCD_BACKUP_TIME}, aborting script!"
+        echo "${red}Copying old etcd data directory ${ETCD_DIR} to ${ETCD_DIR}-old--${ETCD_BACKUP_TIME}${reset}"
+        rootcmd "cp -arfv ${ETCD_DIR} ${ETCD_DIR}-old--${ETCD_BACKUP_TIME}"
+        checkpipecmd "Failed to copy ${ETCD_DIR} to ${ETCD_DIR}-old--${ETCD_BACKUP_TIME}, aborting script!"
 else
-        echo "${red}Moving old etcd data directory /var/lib/etcd to /var/lib/etcd-old--${ETCD_BACKUP_TIME}${reset}"
-        rootcmd "mv /var/lib/etcd /var/lib/etcd-old--${ETCD_BACKUP_TIME}"
+        echo "${red}Moving old etcd data directory ${ETCD_DIR} to ${ETCD_DIR}-old--${ETCD_BACKUP_TIME}${reset}"
+        rootcmd "mv ${ETCD_DIR} ${ETCD_DIR}-old--${ETCD_BACKUP_TIME}"
 fi
 
 ETCD_HOSTNAME=$(sed 's,^.*--hostname=\([^ ]*\).*,\1,g' <<<$RUNLIKE)
@@ -106,7 +138,7 @@ ETCD_VERSION=$(sed 's,^.*rancher/coreos-etcd:\([^ ]*\).*,\1,g' <<<$RUNLIKE)
 INITIAL_ADVERTISE_PEER_URL=$(sed 's,^.*initial-advertise-peer-urls=\([^ ]*\).*,\1,g' <<<$RUNLIKE)
 ETCD_NAME=$(sed 's,^.*name=\([^ ]*\).*,\1,g' <<<$RUNLIKE)
 INITIAL_CLUSTER=$(sed 's,^.*--initial-cluster=.*\('"$ETCD_NAME"'\)=\([^,^ ]*\).*,\1=\2,g' <<<$RUNLIKE)
-ETCD_SNAPSHOT_LOCATION='/etc/kubernetes/snapshot.db'
+ETCD_SNAPSHOT_LOCATION="${CERT_DIR}/snapshot.db"
 INITIAL_CLUSTER_TOKEN=$(sed 's,^.*initial-cluster-token=\([^ ]*\).*,\1,g' <<<$RUNLIKE)
 
 if [[ "$FORCE_NEW_CLUSTER" != "yes" ]]; then
@@ -119,8 +151,8 @@ if [[ "$FORCE_NEW_CLUSTER" != "yes" ]]; then
 --env="ETCDCTL_CERT='$ETCDCTL_CERT'"
 --env="ETCDCTL_KEY='$ETCDCTL_KEY'"
 --env="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
---volume="/var/lib/etcd:/var/lib/rancher/etcd/:z"
---volume="/etc/kubernetes:/etc/kubernetes:z"
+--volume="'${ETCD_DIR}':/var/lib/rancher/etcd/:z"
+--volume="'${CERT_DIR}':/etc/kubernetes:z"
 --volume="/opt/rke:/opt/rke:z"
 --network=host
 --label io.rancher.rke.container.name="etcd"
@@ -197,9 +229,9 @@ echo "${red}Restarting kubelet and kube-apiserver if they exist${reset}"
 docker restart kubelet kube-apiserver
 
 if [[ "$FORCE_NEW_CLUSTER" != "yes" ]]; then
-        echo "${red}Removing /etc/kubernetes/snapshot.db${reset}"
-        #rootcmd "mv /etc/kubernetes/snapshot.db /etc/kubernetes/snapshot.db--${ETCD_BACKUP_TIME}"
-        rootcmd "rm -f /etc/kubernetes/snapshot.db"
+        echo "${red}Removing ${CERT_DIR}/snapshot.db${reset}"
+        #rootcmd "mv ${CERT_DIR}/snapshot.db ${CERT_DIR}/snapshot.db--${ETCD_BACKUP_TIME}"
+        rootcmd "rm -f ${CERT_DIR}/snapshot.db"
 fi
 
 echo "${red}Setting etcd restart policy to always restart${reset}"
