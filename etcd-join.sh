@@ -1,7 +1,9 @@
 #!/bin/bash
-red=$(tput setaf 1)
-green=$(tput setaf 2)
-reset=$(tput sgr0)
+if hash tput 2>/dev/null; then
+    red=$(tput setaf 1)
+    green=$(tput setaf 2)
+    reset=$(tput sgr0)
+fi
 USAGE='Automatic mode usage: ./etcd-join.sh <ssh user> <remote etcd IP> [path to ssh key for remote box]
 Manual mode usage: ./etcd-join.sh MANUAL_MODE'
 rootcmd() {
@@ -65,8 +67,14 @@ function setendpoint() {
         ETCD_ADD_MEMBER_CMD="etcdctl --cacert $ETCDCTL_CACERT --cert $ETCDCTL_CERT --key ${ETCDCTL_KEY} member --endpoints ${REQUIRE_ENDPOINT} add ${ETCD_NAME} --peer-urls=${INITIAL_ADVERTISE_PEER_URL}"
     fi
 }
+function grecho() {
+    echo "${green}$1${reset}"
+}
+function recho() {
+    echo "${red}$1${reset}"
+}
 #Help menu
-if [[ $1 == '' ]] || [[ $@ =~ " -h" ]] || [[ $1 == "-h" ]] || [[ $@ =~ " --help" ]] || [[ $1 =~ "--help" ]]; then
+if [[ "$1" == '' ]] || [[ $@ =~ " -h" ]] || [[ $1 == "-h" ]] || [[ $@ =~ " --help" ]] || [[ $1 =~ "--help" ]]; then
     echo "${green}${USAGE}${reset}"
     exit 1
 fi
@@ -80,6 +88,26 @@ fi
 if [ "$(docker ps -a --filter "name=^/etcd-join$" --format '{{.Names}}')" == "etcd-join" ]; then
     docker rm -f etcd-join
 fi
+
+if [[ -d "/opt/rke/var/lib/etcd" ]]; then
+    ETCD_DIR="/opt/rke/var/lib/etcd"
+    elif [[ -d "/var/lib/etcd" ]]; then
+        ETCD_DIR="/var/lib/etcd"
+        else
+            grecho "Unable to locate an etcd directory, exiting script!"
+            exit 1
+fi
+grecho "Found ${ETCD_DIR}, setting ETCD_DIR to this value"
+
+if [[ -d "/opt/rke/etc/kubernetes" ]]; then
+    CERT_DIR="/opt/rke/etc/kubernetes"
+    elif [[ -d "/etc/kubernetes" ]]; then
+        CERT_DIR="/etc/kubernetes"
+        else
+            grecho "Unable to locate the kubernetes certificate directory, exiting script!"
+            exit 1        
+fi
+grecho "Found ${CERT_DIR}, setting CERT_DIR to this value"
 #check for runlike container
 echo "${green}Gathering information about your etcd container with runlike${reset}"
 RUNLIKE=$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock patrick0057/runlike etcd)
@@ -152,8 +180,8 @@ ETCD_BACKUP_TIME=$(date +%Y-%m-%d--%H%M%S)
 echo ${red}Stopping etcd container${reset}
 docker stop etcd
 
-echo ${red}Moving old etcd data directory /var/lib/etcd to /var/lib/etcd-old--${ETCD_BACKUP_TIME}${reset}
-rootcmd "mv /var/lib/etcd /var/lib/etcd-old--${ETCD_BACKUP_TIME}"
+echo ${red}Moving old etcd data directory ${ETCD_DIR} to ${ETCD_DIR}-old--${ETCD_BACKUP_TIME}${reset}
+rootcmd "mv ${ETCD_DIR} ${ETCD_DIR}-old--${ETCD_BACKUP_TIME}"
 
 ETCD_NAME=$(sed 's,^.*name=\([^ ]*\).*,\1,g' <<<$RUNLIKE)
 ETCD_HOSTNAME=$(sed 's,^.*--hostname=\([^ ]*\).*,\1,g' <<<$RUNLIKE)
@@ -199,8 +227,8 @@ RESTORE_RUNLIKE='docker run
 --env="ETCDCTL_CERT='$ETCDCTL_CERT'"
 --env="ETCDCTL_KEY='$ETCDCTL_KEY'"
 --env="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
---volume="/var/lib/etcd:/var/lib/rancher/etcd/:z"
---volume="/etc/kubernetes:/etc/kubernetes:z"
+--volume="'${ETCD_DIR}':/var/lib/rancher/etcd/:z"
+--volume="'${CERT_DIR}':/etc/kubernetes:z"
 --volume="/opt/rke:/opt/rke:z"
 --network=host
 --label io.rancher.rke.container.name="etcd"
