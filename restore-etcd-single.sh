@@ -175,7 +175,8 @@ if [[ "$FORCE_NEW_CLUSTER" != "yes" ]]; then
         docker stop etcd-restore
 
         echo ${red}Moving restored etcd directory in place${reset}
-        rootcmd "mv /opt/rke/etcd /var/lib/"
+        rootcmd "mv /opt/rke/etcd/* ${ETCD_DIR}/"
+        rootcmd "rm -fr /opt/rke/etcd/"
 
         echo ${red}Deleting etcd-restore container${reset}
         docker rm -f etcd-restore
