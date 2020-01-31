@@ -66,7 +66,7 @@ ssh-copy-id -i ~/.ssh/etcd user@host
 Generate and manual copy.  This method is quickest if you have ssh sessions open already and no other way to login directly without a key.
 ```
 ssh-keygen -t rsa -b 4096 -f ~/.ssh/etcd -N "" <<< y >/dev/null
-cat ~/.ssh/etcd
+cat ~/.ssh/etcd.pub
 ```
 Copy output and on the other host paste it in like so
 ```
