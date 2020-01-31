@@ -6,9 +6,15 @@ if hash tput 2>/dev/null; then
 fi
 USAGE='Automatic mode usage: ./etcd-join.sh <ssh user> <remote etcd IP> [path to ssh key for remote box]
 Manual mode usage: ./etcd-join.sh MANUAL_MODE'
+function grecho() {
+    echo "${green}$1${reset}"
+}
+function recho() {
+    echo "${red}$1${reset}"
+}
 rootcmd() {
     if [[ $EUID -ne 0 ]]; then
-        echo "${green}Running as non root user, issuing command with sudo.${reset}"
+        grecho "Running as non root user, issuing command with sudo."
         sudo $1
     else
         $1
@@ -16,9 +22,9 @@ rootcmd() {
 }
 sshcmd() {
     if [[ ${#REMOTE_SSH_KEY} == 0 ]]; then
-        ssh -o StrictHostKeyChecking=no -l ${REMOTE_SSH_USER} $REMOTE_SSH_IP $1
+        ssh -o StrictHostKeyChecking=no -l "${REMOTE_SSH_USER}" "${REMOTE_SSH_IP}" "$1"
     else
-        ssh -o StrictHostKeyChecking=no -i ${REMOTE_SSH_KEY} -l ${REMOTE_SSH_USER} $REMOTE_SSH_IP $1
+        ssh -o StrictHostKeyChecking=no -i "${REMOTE_SSH_KEY}" -l "${REMOTE_SSH_USER}" "${REMOTE_SSH_IP}" "$1"
     fi
 }
 function askcontinue() {
@@ -44,42 +50,49 @@ function asksetvar() {
     while [[ ${response} != 'yes' ]]; do
         i=$((i + 1))
         if [ $i -gt 10 ]; then
-            echo "${green}Script has detected a response other than 'continue' more than ten times, aborting${reset}"
+            grecho "Script has detected a response other than 'continue' more than ten times, aborting!"
             exit 1
         fi
         printf 'Result?: '
         read "$1"
         declare tmp="$1"
-        echo "${green}Is this correct?:${reset} ${!tmp}
-${green}Type yes and press enter to continue: ${reset}"
+        grecho "Is this correct?:${reset} ${!tmp}
+${green}Type yes and press enter to continue: "
         read response
     done
     shopt -u nocasematch
-    echo "${red}$1 has been set to${green} ${!tmp}${reset}"
+    recho "$1 has been set to${green} ${!tmp}"
+}
+function checkpipecmd() {
+        RC=("${PIPESTATUS[@]}")
+        if [[ "$2" != "" ]]; then
+                PIPEINDEX=$2
+        else
+                PIPEINDEX=0
+        fi
+        if [ "${RC[${PIPEINDEX}]}" != "0" ]; then
+                echo "${green}$1${reset}"
+                exit 1
+        fi
 }
 
 function setendpoint() {
     if [[ "$REQUIRE_ENDPOINT" =~ ":::" ]]; then
-        echo "${green}etcd is listening on ${REQUIRE_ENDPOINT}, no need to pass --endpoints${reset}"
-        ETCD_ADD_MEMBER_CMD="etcdctl --cacert $ETCDCTL_CACERT --cert $ETCDCTL_CERT --key ${ETCDCTL_KEY} member add ${ETCD_NAME} --peer-urls=${INITIAL_ADVERTISE_PEER_URL}"
+        grecho "etcd is listening on ${REQUIRE_ENDPOINT}, no need to pass --endpoints"
+        ETCD_ADD_MEMBER_CMD="etcdctl --cacert $ETCDCTL_CACERT --cert ${ETCDCTL_CERT} --key ${ETCDCTL_KEY} member add ${ETCD_NAME} --peer-urls=${INITIAL_ADVERTISE_PEER_URL}"
     else
-        echo "${green}etcd is only listening on ${REQUIRE_ENDPOINT}, we need to pass --endpoints${reset}"
-        ETCD_ADD_MEMBER_CMD="etcdctl --cacert $ETCDCTL_CACERT --cert $ETCDCTL_CERT --key ${ETCDCTL_KEY} member --endpoints ${REQUIRE_ENDPOINT} add ${ETCD_NAME} --peer-urls=${INITIAL_ADVERTISE_PEER_URL}"
+        grecho "etcd is only listening on ${REQUIRE_ENDPOINT}, we need to pass --endpoints"
+        ETCD_ADD_MEMBER_CMD="etcdctl --cacert $ETCDCTL_CACERT --cert ${ETCDCTL_CERT} --key ${ETCDCTL_KEY} member --endpoints ${REQUIRE_ENDPOINT} add ${ETCD_NAME} --peer-urls=${INITIAL_ADVERTISE_PEER_URL}"
     fi
 }
-function grecho() {
-    echo "${green}$1${reset}"
-}
-function recho() {
-    echo "${red}$1${reset}"
-}
+
 #Help menu
 if [[ "$1" == '' ]] || [[ $@ =~ " -h" ]] || [[ $1 == "-h" ]] || [[ $@ =~ " --help" ]] || [[ $1 =~ "--help" ]]; then
-    echo "${green}${USAGE}${reset}"
+    grecho "${USAGE}"
     exit 1
 fi
 if [[ $1 != 'MANUAL_MODE' ]] && [[ $2 == '' ]]; then
-    echo "${green}${USAGE}${reset}"
+    grecho "${USAGE}"
     exit 1
 fi
 if [[ $1 == 'MANUAL_MODE' ]]; then
@@ -94,7 +107,7 @@ if [[ -d "/opt/rke/var/lib/etcd" ]]; then
     elif [[ -d "/var/lib/etcd" ]]; then
         ETCD_DIR="/var/lib/etcd"
         else
-            grecho "Unable to locate an etcd directory, exiting script!"
+            grecho "Unable to locate an etcd directory, either move an old backup back into the normal place for your operating system or create an empty directory.  RancherOS/CoreOS is usually /opt/rke/var/lib/etcd/ and everything else uses /varr/lib/etcd/ by default."
             exit 1
 fi
 grecho "Found ${ETCD_DIR}, setting ETCD_DIR to this value"
@@ -109,79 +122,88 @@ if [[ -d "/opt/rke/etc/kubernetes" ]]; then
 fi
 grecho "Found ${CERT_DIR}, setting CERT_DIR to this value"
 #check for runlike container
-echo "${green}Gathering information about your etcd container with runlike${reset}"
+grecho "Gathering information about your etcd container with runlike"
 RUNLIKE=$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock patrick0057/runlike etcd)
 if [[ $? -ne 0 ]]; then
-    echo ${green}runlike container failed to run, aborting script!${reset}
+    grecho "runlike container failed to run, aborting script!"
     exit 1
 fi
 if [[ "${MANUAL_MODE}" != "yes" ]]; then
     REMOTE_SSH_USER=$1
     REMOTE_SSH_IP=$2
     REMOTE_SSH_KEY=$3
-    echo ${green}Verifying SSH connections...${reset}
+    grecho "Verifying SSH connections..."
     echo ssh user: ${REMOTE_SSH_USER}
     echo ssh ip: ${REMOTE_SSH_IP}
     echo ssh key: ${REMOTE_SSH_KEY}
     #echo length ${#REMOTE_SSH_KEY}
     if [[ ${#REMOTE_SSH_KEY} == 0 ]]; then
-        ssh -o StrictHostKeyChecking=no -l ${REMOTE_SSH_USER} $REMOTE_SSH_IP exit
+        ssh -o StrictHostKeyChecking=no -l "${REMOTE_SSH_USER} ${REMOTE_SSH_IP}" exit
         if [[ $? -ne 0 ]]; then
-            echo "${green}Unable to connect to remote SSH host, aborting script! Did you set your ssh key\?${reset}"
+            grecho "Unable to connect to remote SSH host, aborting script! Did you set your ssh key\?"
             echo
-            echo "${green}${USAGE}${reset}"
+            grecho "${USAGE}"
             exit 1
 
         fi
     else
-        ssh -o StrictHostKeyChecking=no -i ${REMOTE_SSH_KEY} -l ${REMOTE_SSH_USER} $REMOTE_SSH_IP exit
+        ssh -o StrictHostKeyChecking=no -i "${REMOTE_SSH_KEY}" -l "${REMOTE_SSH_USER}" "${REMOTE_SSH_IP}" exit
         if [[ $? -ne 0 ]]; then
-            echo ${green}Unable to connect to remote SSH host, aborting script!${reset}
+            grecho "Unable to connect to remote SSH host, aborting script!"
             echo
-            echo "${green}${USAGE}${reset}"
+            grecho "${USAGE}"
             exit 1
         fi
     fi
-    echo "${green}SSH test succesful.${reset}"
+    grecho "SSH test succesful."
     echo
 fi
 if [[ "${MANUAL_MODE}" != "yes" ]]; then
     #Check if etcd is actually running on the remote server
-    echo ${green}Checking to see if etcd is actually running on the remote host ${reset}
+    grecho "Checking to see if etcd is actually running on the remote host"
     REMOTE_ETCD_RUNNING=$(sshcmd "docker ps --filter 'name=^/etcd$' --format '{{.Names}}'")
-    if [[ ! ${REMOTE_ETCD_RUNNING} == 'etcd' ]]; then
-        echo ${green}etcd is not running on the remote host! Check that you have the correct host then try again.${reset}
+    if [[ ! ${REMOTE_ETCD_RUNNING} == "etcd" ]]; then
+        grecho "etcd is not running on the remote host! Check that you have the correct host then try again."
         exit 1
     fi
-    echo "${green}etcd is running on the remote host, excellent!${reset}"
+    grecho "etcd is running on the remote host, excellent!"
     echo
 else
-    echo ${green}MANUAL_MODE ENABLED: Please verify that etcd is running the host that you want to join before proceeding!${reset}
-    echo "${red}Run:${reset} docker ps | grep etcd | grep -v etcd-rolling-snapshots"
+    grecho "MANUAL_MODE ENABLED: Please verify that etcd is running the host that you want to join before proceeding!"
+    recho "Run:${reset} docker ps | grep etcd | grep -v etcd-rolling-snapshots"
     askcontinue
 fi
 
 export $(docker inspect etcd -f '{{.Config.Env}}' | sed 's/[][]//g')
 docker inspect etcd &>/dev/null
 if [[ $? -ne 0 ]]; then
-    echo "${green}Uable to inspect the etcd container, does it still exist? Aborting script!${reset}"
+    grecho "Uable to inspect the etcd container, does it still exist? Aborting script!"
     echo
-    echo "${green}${USAGE}${reset}"
+    grecho "${USAGE}"
     exit 1
 fi
-echo "${green}I was able to inspect the local etcd container! Script will proceed...${reset}"
+grecho "I was able to inspect the local etcd container! Script will proceed..."
 echo
 
-echo "${red}Setting etcd restart policy to never restart \"no\"${reset}"
+recho "Setting etcd restart policy to never restart \"no\""
 docker update --restart=no etcd
 
-ETCD_BACKUP_TIME=$(date +%Y-%m-%d--%H%M%S)
+ETCD_BACKUP_TIME="$(date +%Y-%m-%d--%H%M%S)"
 
-echo ${red}Stopping etcd container${reset}
+recho "Stopping etcd container"
 docker stop etcd
 
-echo ${red}Moving old etcd data directory ${ETCD_DIR} to ${ETCD_DIR}-old--${ETCD_BACKUP_TIME}${reset}
-rootcmd "mv ${ETCD_DIR} ${ETCD_DIR}-old--${ETCD_BACKUP_TIME}"
+
+recho "Moving old etcd data from ${ETCD_DIR} to ${ETCD_DIR}-old--${ETCD_BACKUP_TIME}"
+rootcmd "mkdir ${ETCD_DIR}-old--${ETCD_BACKUP_TIME}"
+checkpipecmd "Failed to created backup etcd directory, exiting script!"
+if [[ "$(ls -A ${ETCD_DIR})" ]]; then
+        recho "${ETCD_DIR} is not empty, moving files out into ${ETCD_DIR}-old--${ETCD_BACKUP_TIME}"
+        rootcmd "mv ${ETCD_DIR}/* ${ETCD_DIR}-old--${ETCD_BACKUP_TIME}/"
+        checkpipecmd "Failed to move etcd data files to backup directory ${ETCD_DIR}/* -> ${ETCD_DIR}-old--${ETCD_BACKUP_TIME}/, exiting script!"
+        else
+        grecho "${ETCD_DIR} is empty, no need to move any files out."
+fi
 
 ETCD_NAME=$(sed 's,^.*name=\([^ ]*\).*,\1,g' <<<$RUNLIKE)
 ETCD_HOSTNAME=$(sed 's,^.*--hostname=\([^ ]*\).*,\1,g' <<<$RUNLIKE)
@@ -195,24 +217,24 @@ ETCD_NAME=$(sed 's,^.*name=\([^ ]*\).*,\1,g' <<<$RUNLIKE)
 INITIAL_CLUSTER=$(sed 's,^.*--initial-cluster=.*\('"$ETCD_NAME"'\)=\([^,^ ]*\).*,\1=\2,g' <<<$RUNLIKE)
 INITIAL_CLUSTER_TOKEN=$(sed 's,^.*initial-cluster-token=\([^ ]*\).*,\1,g' <<<$RUNLIKE)
 ADVERTISE_CLIENT_URLS=$(sed 's,^.*advertise-client-urls=\([^ ]*\).*,\1,g' <<<$RUNLIKE)
-
+ETCD_IMAGE=$(docker inspect etcd --format='{{.Config.Image}}')
 if [[ "${MANUAL_MODE}" != "yes" ]]; then
     #CHECK IF WE NEED TO ADD --endpoints TO THE COMMAND
     REQUIRE_ENDPOINT=$(sshcmd "docker exec etcd netstat -lpna | grep \:2379 | grep tcp | grep LISTEN | tr -s ' ' | cut -d' ' -f4")
     setendpoint
 else
-    echo "${green}MANUAL_MODE ENABLED: Please run the following command on the etcd host you want to join then paste the results below.${reset}"
+    grecho "MANUAL_MODE ENABLED: Please run the following command on the etcd host you want to join then paste the results below."
     echo "docker exec etcd netstat -lpna | grep \:2379 | grep tcp | grep LISTEN | tr -s ' ' | cut -d' ' -f4"
     asksetvar REQUIRE_ENDPOINT
     setendpoint
 fi
 
 if [[ "${MANUAL_MODE}" != "yes" ]]; then
-    echo ${red}Connecting to remote etcd and issuing add member command${reset}
+    recho "Connecting to remote etcd and issuing add member command"
     export $(sshcmd "docker exec etcd ${ETCD_ADD_MEMBER_CMD} | grep ETCD_INITIAL_CLUSTER=")
-    echo "${red}ETCD_INITIAL_CLUSTER has been set to ${ETCD_INITIAL_CLUSTER} ${green}<-If this is blank etcd-join will fail${reset}"
+    recho "ETCD_INITIAL_CLUSTER has been set to ${ETCD_INITIAL_CLUSTER} ${green}<-If this is blank etcd-join will fail"
 else
-    echo "${green}MANUAL_MODE ENABLED: Please run the following command on the etcd host you want to join then paste the results below.${reset}"
+    grecho "MANUAL_MODE ENABLED: Please run the following command on the etcd host you want to join then paste the results below."
     echo "docker exec etcd ${ETCD_ADD_MEMBER_CMD} | grep ETCD_INITIAL_CLUSTER= | sed -r 's,ETCD_INITIAL_CLUSTER=\"(.*)\",\1,g'"
     asksetvar ETCD_INITIAL_CLUSTER
     askcontinue
@@ -232,7 +254,7 @@ RESTORE_RUNLIKE='docker run
 --volume="/opt/rke:/opt/rke:z"
 --network=host
 --label io.rancher.rke.container.name="etcd"
---detach=true rancher/coreos-etcd:'$ETCD_VERSION' /usr/local/bin/etcd
+--detach=true '${ETCD_IMAGE}' /usr/local/bin/etcd
 --peer-client-cert-auth
 --client-cert-auth
 --initial-cluster='${ETCD_INITIAL_CLUSTER}'
@@ -252,61 +274,60 @@ RESTORE_RUNLIKE='docker run
 --peer-trusted-ca-file='${ETCDCTL_CACERT}'
 --cert-file='${ETCDCTL_CERT}'
 --key-file='${ETCDCTL_KEY}''
-echo "${green}Running the following command:${reset}"
-echo $RESTORE_RUNLIKE
 
-echo "${green}Launching etcd-join${reset}"
-eval $RESTORE_RUNLIKE
+grecho "Launching etcd-join with the following command:"
+echo "${RESTORE_RUNLIKE}"
+eval ${RESTORE_RUNLIKE}
 echo
 
-echo "${green}Script sleeping for 10 seconds${reset}"
+grecho "Script sleeping for 10 seconds."
 sleep 10
 
 if [ ! "$(docker ps --filter "name=^/etcd-join$" --format '{{.Names}}')" == "etcd-join" ]; then
-    echo "${green} etcd-join is not running, something went wrong.  Make sure the etcd cluster only has healthy and online members then try again.${reset}"
+    grecho " etcd-join is not running, something went wrong.  Make sure the etcd cluster only has healthy and online members then try again."
     exit 1
 fi
 
-echo "${green}etcd-join appears to be running still, this is a good sign. Proceeding with cleanup.${reset}"
-echo "${red}Stopping etcd-join${reset}"
+grecho "etcd-join appears to be running still, this is a good sign. Proceeding with cleanup."
+recho "Stopping etcd-join"
 docker stop etcd-join
-echo "${red}Deleting etcd-join${reset}"
+recho "Deleting etcd-join"
 docker rm etcd-join
-echo "${red}Starting etcd${reset}"
+recho "Starting etcd"
 docker start etcd
 
 if [ ! "$(docker ps --filter "name=^/etcd$" --format '{{.Names}}')" == "etcd" ]; then
-    echo "${green}etcd is not running, something went wrong.${reset}"
+    grecho "etcd is not running, something went wrong."
     exit 1
 fi
-echo "${green}etcd is running on local host${reset}"
+grecho "etcd is running on local host."
 
 if [[ "${MANUAL_MODE}" != "yes" ]]; then
-    echo "${green}checking members list on remote etcd host.${reset}"
+    grecho "checking members list on remote etcd host."
     if [[ $REQUIRE_ENDPOINT =~ ":::" ]]; then
-        echo "${green}etcd is listening on ${REQUIRE_ENDPOINT}, no need to pass --endpoints${reset}"
+        grecho "etcd is listening on ${REQUIRE_ENDPOINT}, no need to pass --endpoints"
         sshcmd "docker exec etcd etcdctl member list"
     else
-        echo "${green}etcd is only listening on ${REQUIRE_ENDPOINT}, we need to pass --endpoints${reset}"
+        grecho "etcd is only listening on ${REQUIRE_ENDPOINT}, we need to pass --endpoints"
         sshcmd "docker exec etcd etcdctl --endpoints ${REQUIRE_ENDPOINT} member list"
     fi
 else
-    echo "${green}MANUAL_MODE ENABLED: Script has completed, please run the following command on the remote etcd host to verify members list.${reset}"
-    if [[ $REQUIRE_ENDPOINT =~ ":::" ]]; then
-        echo "${green}etcd is listening on ${REQUIRE_ENDPOINT}, no need to pass --endpoints${reset}"
+    grecho "MANUAL_MODE ENABLED: Script has completed, please run the following command on the remote etcd host to verify members list."
+    if [[ ${REQUIRE_ENDPOINT} =~ ":::" ]]; then
+        grecho "etcd is listening on ${REQUIRE_ENDPOINT}, no need to pass --endpoints"
         echo "docker exec etcd etcdctl member list"
     else
-        echo "${green}etcd is only listening on ${REQUIRE_ENDPOINT}, we need to pass --endpoints${reset}"
+        grecho "etcd is only listening on ${REQUIRE_ENDPOINT}, we need to pass --endpoints"
         echo "docker exec etcd etcdctl --endpoints ${REQUIRE_ENDPOINT} member list"
     fi
     askcontinue
 fi
 
-echo "${red}Setting etcd restart policy to always restart${reset}"
+recho "Setting etcd restart policy to always restart"
 docker update --restart=always etcd
 
-echo "${red}Restarting kubelet and kube-apiserver if they exist${reset}"
+recho "Restarting kubelet and kube-apiserver if they exist"
 docker restart kubelet kube-apiserver
 
 echo
-echo "${green}Script has completed!${reset}"
+grecho "Script has completed!"
