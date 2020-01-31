@@ -55,3 +55,20 @@ docker exec etcd sh -c "etcdctl member remove <id>"
 docker restart kubelet kube-apiserver
 ```
 
+## Quickly generate and copy SSH keys
+
+Generate and copy.  This method is quickest if you have a password login you can use on the remote end.
+```
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/etcd -N "" <<< y >/dev/null
+ssh-copy-id -i ~/.ssh/etcd user@host
+```
+
+Generate and manual copy.  This method is quickest if you have ssh sessions open already and no other way to login directly without a key.
+```
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/etcd -N "" <<< y >/dev/null
+cat ~/.ssh/etcd
+```
+Copy output and on the other host paste it in like so
+```
+cat >> ~/.ssh/authorized_keys
+```
