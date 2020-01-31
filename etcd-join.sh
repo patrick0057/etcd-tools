@@ -234,7 +234,10 @@ if [[ "${MANUAL_MODE}" != "yes" ]]; then
     export $(sshcmd "docker exec etcd ${ETCD_ADD_MEMBER_CMD} | grep ETCD_INITIAL_CLUSTER=")
     recho "ETCD_INITIAL_CLUSTER has been set to ${ETCD_INITIAL_CLUSTER} ${green}<-If this is blank etcd-join will fail"
 else
-    grecho "MANUAL_MODE ENABLED: Please run the following command on the etcd host you want to join then paste the results below."
+    grecho "MANUAL_MODE ENABLED: Please run the following command on the etcd host you want to join then paste the last line of the output below."
+    grecho "it should look something like this:"
+    echo "etcd-ip-172-31-11-26=https://172.31.11.26:2380,etcd-ip-172-31-14-134=https://172.31.14.134:2380"
+    grecho "command below:"
     echo "docker exec etcd ${ETCD_ADD_MEMBER_CMD} | grep ETCD_INITIAL_CLUSTER= | sed -r 's,ETCD_INITIAL_CLUSTER=\"(.*)\",\1,g'"
     asksetvar ETCD_INITIAL_CLUSTER
     askcontinue
