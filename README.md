@@ -71,4 +71,5 @@ cat ~/.ssh/etcd.pub
 Copy output and on the other host paste it in like so
 ```
 cat >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
 ```
